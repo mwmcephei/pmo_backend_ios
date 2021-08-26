@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { XlsxParserService } from './xlsx-parser.service';
-import { XlsxParserController } from './xlsx-parser.controller';
+import { ApiService } from './api.service';
+import { ApiController } from './api.controller';
+
 import { Sheet, SheetSchema } from '../schemas/sheet.schema';
 import { Measure, MeasureSchema } from '../schemas/measure.schema';
 import { Artefact, ArtefactSchema } from '../schemas/artefact.schema';
@@ -16,7 +17,7 @@ import { Budget, BudgetSchema } from '../schemas/budget.schema';
       { name: 'Budget', schema: BudgetSchema },
     ]),
   ],
-  providers: [XlsxParserController, XlsxParserService],
-  controllers: [XlsxParserController],
+  controllers: [ApiController],
+  providers: [ApiService],
 })
-export class XlsxParserModule {}
+export class ApiModule {}
