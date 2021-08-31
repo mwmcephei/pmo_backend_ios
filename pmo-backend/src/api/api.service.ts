@@ -30,7 +30,7 @@ export class ApiService {
     }
 
     async getAllMeasures(): Promise<string> {
-        const result = await this.measureModel.find();
+        const result = await this.measureModel.find().sort({ id: "asc" })
         console.log(result);
         return JSON.stringify(result);
     }

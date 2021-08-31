@@ -212,6 +212,13 @@ export class XlsxParserService {
 
   // parse and save measures and corresponding artefacts
   parse(): string {
+    const focusAreaNames: { [key: string]: string } = {
+      "Slow down hackers": "SH",
+      "Increase detection": "ID",
+      "Reduce damage": "RD",
+      "Streamline compliance": "SC",
+      "Build Security org/skills": "BS"
+    }
     // create Sheet Table
     const newSheet = {
       name: fileNames.main_file,
@@ -219,18 +226,54 @@ export class XlsxParserService {
     const excelFile = new this.sheetModel(newSheet)
     excelFile.save()
       .then(newlySavedExcelSheet => {
-        console.log(newlySavedExcelSheet)
-
         const workbook = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.main_file))
-        // 'sheet' corresponds to measure
+        const workbookBudgetFile = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.status_report))
+        const statusReportAsJsonObject = XLSX.utils.sheet_to_json(workbookBudgetFile.Sheets[workbookBudgetFile.SheetNames[0]])
+        // 'sheet' here means a sheet of the xlsx file i.e. a measure "M...""
         const sheet_name_list = workbook.SheetNames;
-        console.log(typeof (workbook.SheetNames))
         sheet_name_list.map(sheetName => {
           // save measure to DB
           if (sheetName !== "Status Overview" && sheetName !== "Overview") {
-            console.log(sheetName)
+            const xlsxFileAsJsonObject: SheetType[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+            let id: number;
+            let measureLead: string;
+            let measureSponsor: string;
+            let lineOrgSponsor: string;
+            let solutionManager: string;
+            let approved: number;
+            let spent: number;
+            let kpiName: string;
+            let actuals: number;
+            let target: number;
+            for (let i = 0; i < statusReportAsJsonObject.length; i++) {
+              if (statusReportAsJsonObject[i]["__EMPTY_1"] === sheetName) {
+                const firstKey = Object.keys(statusReportAsJsonObject[i])[0]
+                id = statusReportAsJsonObject[i][firstKey]
+                measureLead = statusReportAsJsonObject[i]["__EMPTY_8"]
+                measureSponsor = statusReportAsJsonObject[i]["__EMPTY_7"]
+                lineOrgSponsor = statusReportAsJsonObject[i]["__EMPTY_10"]
+                solutionManager = statusReportAsJsonObject[i]["__EMPTY_11"]
+                approved = statusReportAsJsonObject[i]["__EMPTY_12"]
+                spent = statusReportAsJsonObject[i]["__EMPTY_14"].toFixed(2)
+                kpiName = statusReportAsJsonObject[i]["__EMPTY_17"]
+                actuals = statusReportAsJsonObject[i]["__EMPTY_19"]
+                target = statusReportAsJsonObject[i]["__EMPTY_27"]
+              }
+            }
             const newMeasure = {
+              id,
               title: sheetName,
+              name: xlsxFileAsJsonObject[3]["__EMPTY_1"],
+              focusArea: focusAreaNames[xlsxFileAsJsonObject[3]["__EMPTY_8"]],
+              measureLead,
+              measureSponsor,
+              lineOrgSponsor,
+              solutionManager,
+              approved,
+              spent,
+              kpiName,
+              actuals,
+              target,
             }
             const measure = new this.measureModel(newMeasure)
             measure.save()
@@ -240,9 +283,8 @@ export class XlsxParserService {
                 return savedMeasure
               })
               .then(async savedMeasure => {
-                // get artefacts of this measure and add it to measure in DB
-                const data: SheetType[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
-                const artefacts = this.getArtefactsFromLinesArray(data)
+                // get artefacts of this measure and add it to measure in DB            
+                const artefacts = this.getArtefactsFromLinesArray(xlsxFileAsJsonObject)
 
                 const savedArtefact_IDs = []
                 artefacts.map(art => {  // artefacts: array of objects, each containing a row of xlsx file
@@ -272,7 +314,7 @@ export class XlsxParserService {
 
 
 
-  // aux function for parse()
+  // aux functions for parse()
   getArtefactsFromLinesArray(sheet: SheetType[]): SheetType[] {
     return sheet.filter(line => {
       const firstKey = Object.keys(line)[0]
@@ -288,6 +330,8 @@ export class XlsxParserService {
       }
     });
   }
+
+
 
 
 

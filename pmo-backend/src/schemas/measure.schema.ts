@@ -8,13 +8,40 @@ export type MeasureDocument = Measure & mongoose.Document;
 export class Measure {
   @Prop()
   title: string;
+  @Prop()
+  id: number;
+  @Prop()
+  name: string;
+
+  @Prop()
+  focusArea: string;
+
+  @Prop()
+  measureLead: string;
+  @Prop()
+  measureSponsor: string;
+  @Prop()
+  lineOrgSponsor: string;
+  @Prop()
+  solutionManager: string;
+
+  @Prop()
+  approved: number;
+  @Prop()
+  spent: number;
+
+  @Prop()
+  kpiName: string;
+
+  @Prop()
+  actuals: number;
+  @Prop()
+  target: number;
 
   @Prop()
   risk: number;
-
   @Prop()
   budget: number;
-
   @Prop()
   artefact: number;
 
