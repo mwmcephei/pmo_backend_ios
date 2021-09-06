@@ -40,9 +40,23 @@ type KpiProgressData = {
 }
 type AllBudgetMeasures = { [x: number]: number }
 
+type risk = {
+  risk: string | number,
+  description: string | number,
+  criticality: string | number,
+  migration: string | number,
+  resolutionDate: string | number,
+}
 
-
-
+type KPI = {
+  target: number,
+  actuals: number,
+  baseline: number,
+  plan1: number,
+  plan2: number,
+  plan3: number,
+  plan4: number,
+}
 
 type SheetType = {
   [key: string]: string | number
@@ -226,14 +240,87 @@ export class XlsxParserService {
     const excelFile = new this.sheetModel(newSheet)
     excelFile.save()
       .then(newlySavedExcelSheet => {
+        // get raw data from files
         const workbook = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.main_file))
-        const workbookBudgetFile = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.status_report))
-        const statusReportAsJsonObject = XLSX.utils.sheet_to_json(workbookBudgetFile.Sheets[workbookBudgetFile.SheetNames[0]])
+        const workbookStatusReportFile = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.status_report))
+        const workbookBudgetFile = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.budget_file))
+        const statusReportAsJsonObject = XLSX.utils.sheet_to_json(workbookStatusReportFile.Sheets[workbookStatusReportFile.SheetNames[0]])
+        const budgetFileAsJsonObject = XLSX.utils.sheet_to_json(workbookBudgetFile.Sheets["1. Overview"])
+        const budgetDetailsFileAsJsonObject = workbookBudgetFile.Sheets['2. Detailed view'];
+        const kpiWorkbook = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.kpi_file_1));
+        const kpiFileAsJsonObject = kpiWorkbook.Sheets['Plan view'];
+
+        //     console.log(budgetDetailsFileAsJsonObject)
+
         // 'sheet' here means a sheet of the xlsx file i.e. a measure "M...""
         const sheet_name_list = workbook.SheetNames;
         sheet_name_list.map(sheetName => {
           // save measure to DB
           if (sheetName !== "Status Overview" && sheetName !== "Overview") {
+
+            // get month columns EUR1 EUR2 .... row 12
+            const month_columns = [];
+            Object.keys(budgetDetailsFileAsJsonObject).map((key) => {
+              const tmp = key.replace(/^[A-Z]/, '_');
+              const split = tmp.split('_');
+              const target = split[split.length - 1];
+              if (parseInt(target) == 12) {
+                const x = budgetDetailsFileAsJsonObject[key]['v'];
+                if (x.substring(0, 3) === 'EUR' && x.length < 5) {
+                  month_columns.push(key.substring(0, key.length - 2));
+                }
+              }
+            });
+            //  month_columns = [ 'M', 'O', 'Q', 'S', 'U', 'W' ]   columns of months in "Detailed view"
+            const monthlySpendings = month_columns.map(month => {
+              let sumOfThisMonth = 0
+              Object.keys(budgetDetailsFileAsJsonObject).map((key) => {
+                if (key.substring(0, 1) === "C") {
+                  if (budgetDetailsFileAsJsonObject[key]["v"] === sheetName) {
+                    const rowNr = key.substring(1, key.length)
+                    if (budgetDetailsFileAsJsonObject[month + rowNr]) {
+                      if (budgetDetailsFileAsJsonObject[month + rowNr]["v"]) {
+                        //      console.log(budgetDetailsFileAsJsonObject[month + rowNr]["v"])
+                        sumOfThisMonth = sumOfThisMonth + budgetDetailsFileAsJsonObject[month + rowNr]["v"]
+                      }
+                    }
+                  }
+                }
+              });
+              return sumOfThisMonth
+            })
+
+            let kpiData: KPI = {
+              target: 0,
+              actuals: 0,
+              baseline: 0,
+              plan1: 0,
+              plan2: 0,
+              plan3: 0,
+              plan4: 0,
+            }
+            Object.keys(kpiFileAsJsonObject).map((key) => {
+              if (key.includes('D')) {
+                const row = parseInt(key.substring(1));
+                if (row > 4) {
+                  if (kpiFileAsJsonObject[key].v === sheetName) {
+                    kpiData.baseline = kpiFileAsJsonObject['F' + row].v
+                    kpiData.actuals = kpiFileAsJsonObject['G' + row].v
+                    kpiData.target = kpiFileAsJsonObject['H' + row].v
+                    kpiData.plan1 = kpiFileAsJsonObject['J' + row].v
+                    kpiData.plan2 = kpiFileAsJsonObject['K' + row].v
+                    kpiData.plan3 = kpiFileAsJsonObject['L' + row].v
+                    kpiData.plan4 = kpiFileAsJsonObject['M' + row].v
+                  }
+                }
+              }
+            });
+            let totalApprovedBudget = 0
+            for (let i = 0; i < budgetFileAsJsonObject.length; i++) {
+              if (budgetFileAsJsonObject[i]["__EMPTY_1"] === sheetName) {
+                totalApprovedBudget = budgetFileAsJsonObject[i]["__EMPTY_10"]
+              }
+            }
             const xlsxFileAsJsonObject: SheetType[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
             let id: number;
             let measureLead: string;
@@ -245,10 +332,12 @@ export class XlsxParserService {
             let kpiName: string;
             let actuals: number;
             let target: number;
+            let description: string;
             for (let i = 0; i < statusReportAsJsonObject.length; i++) {
               if (statusReportAsJsonObject[i]["__EMPTY_1"] === sheetName) {
                 const firstKey = Object.keys(statusReportAsJsonObject[i])[0]
                 id = statusReportAsJsonObject[i][firstKey]
+                description = statusReportAsJsonObject[i]["__EMPTY_4"]
                 measureLead = statusReportAsJsonObject[i]["__EMPTY_8"]
                 measureSponsor = statusReportAsJsonObject[i]["__EMPTY_7"]
                 lineOrgSponsor = statusReportAsJsonObject[i]["__EMPTY_10"]
@@ -260,11 +349,49 @@ export class XlsxParserService {
                 target = statusReportAsJsonObject[i]["__EMPTY_27"]
               }
             }
+            // get risks
+            const risks: risk[] = []
+            for (let x = 0; x < xlsxFileAsJsonObject.length; x++) {
+              if (xlsxFileAsJsonObject[x]["__EMPTY_2"] === "KPI Description (Actuals/Target)") {
+                let risk1: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                if (xlsxFileAsJsonObject[x]["__EMPTY_8"]) { risk1.risk = xlsxFileAsJsonObject[x]["__EMPTY_8"] }
+                if (xlsxFileAsJsonObject[x]["__EMPTY_10"]) { risk1.description = xlsxFileAsJsonObject[x]["__EMPTY_10"] }
+                if (xlsxFileAsJsonObject[x]["__EMPTY_17"]) { risk1.criticality = xlsxFileAsJsonObject[x]["__EMPTY_17"] }
+                if (xlsxFileAsJsonObject[x]["__EMPTY_19"]) { risk1.migration = xlsxFileAsJsonObject[x]["__EMPTY_19"] }
+                if (xlsxFileAsJsonObject[x]["__EMPTY_25"]) { risk1.resolutionDate = xlsxFileAsJsonObject[x]["__EMPTY_25"] }
+                risks.push(risk1)
+                if (xlsxFileAsJsonObject[x + 3]["__EMPTY_8"]) {
+                  let risk2: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_8"]) { risk2.risk = xlsxFileAsJsonObject[x + 3]["__EMPTY_8"] }
+                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_10"]) { risk2.description = xlsxFileAsJsonObject[x + 3]["__EMPTY_10"] }
+                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_17"]) { risk2.criticality = xlsxFileAsJsonObject[x + 3]["__EMPTY_17"] }
+                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_19"]) { risk2.migration = xlsxFileAsJsonObject[x + 3]["__EMPTY_19"] }
+                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_25"]) { risk2.resolutionDate = xlsxFileAsJsonObject[x + 3]["__EMPTY_25"] }
+                  risks.push(risk2)
+                  if (xlsxFileAsJsonObject[x + 6]["__EMPTY_8"]) {
+                    let risk3: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_8"]) { risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_8"] }
+                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_10"]) { risk3.description = xlsxFileAsJsonObject[x + 6]["__EMPTY_10"] }
+                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_17"]) { risk3.criticality = xlsxFileAsJsonObject[x + 6]["__EMPTY_17"] }
+                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_19"]) { risk3.migration = xlsxFileAsJsonObject[x + 6]["__EMPTY_19"] }
+                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_25"]) { risk3.resolutionDate = xlsxFileAsJsonObject[x + 6]["__EMPTY_25"] }
+                    risks.push(risk3)
+                  }
+                }
+              }
+            }
+            console.log(monthlySpendings)
+
             const newMeasure = {
+              kpiData,
               id,
               title: sheetName,
               name: xlsxFileAsJsonObject[3]["__EMPTY_1"],
+              description,
+              time: xlsxFileAsJsonObject[3]["__EMPTY_19"],
+              lastUpdate: xlsxFileAsJsonObject[3]["__EMPTY_24"],
               focusArea: focusAreaNames[xlsxFileAsJsonObject[3]["__EMPTY_8"]],
+              focusAreaFull: xlsxFileAsJsonObject[3]["__EMPTY_8"],
               measureLead,
               measureSponsor,
               lineOrgSponsor,
@@ -274,6 +401,9 @@ export class XlsxParserService {
               kpiName,
               actuals,
               target,
+              risks,
+              totalApprovedBudget,
+              monthlySpendings
             }
             const measure = new this.measureModel(newMeasure)
             measure.save()
@@ -531,5 +661,22 @@ export class XlsxParserService {
         console.log(e);
       });
     return 'budget parsed';
+  }
+
+
+
+  budgetStringToNumber(input) {
+    let result = ""
+    const temp = input.substring(1, input.length - 3)
+    if (temp.includes(",")) {
+      const index = temp.indexOf(",")
+      result = temp.substring(0, index) + temp.substring(index + 1);
+    } else if (temp.includes(".")) {
+      const index = temp.indexOf(".")
+      result = temp.substring(0, index) + temp.substring(index + 1);
+    } else if (temp.includes("-")) {
+      result = "0"
+    }
+    return parseInt(result)
   }
 }

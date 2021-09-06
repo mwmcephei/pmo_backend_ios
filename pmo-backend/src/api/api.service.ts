@@ -17,8 +17,17 @@ export class ApiService {
     ) { }
 
 
-    async getArtefactsOfMeasure(measureID: string): Promise<string> {
+    async getMeasure(measureID: string): Promise<string> {
         const measure = await this.measureModel.findById(measureID);
+        if (measure) {
+            return JSON.stringify(measure);
+        } else {
+            return JSON.stringify('Error');
+        }
+    }
+
+    async getArtefactsOfMeasure(measureID: string): Promise<string> {
+        const measure = await this.measureModel.findById(measureID).sort({ id: "asc" })
         if (measure) {
             const populatedMeasure = await measure
                 .populate('artefacts')

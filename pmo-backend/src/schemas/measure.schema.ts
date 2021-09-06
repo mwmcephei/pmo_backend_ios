@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
 import { Artefact } from './artefact.schema';
+import { KPI } from './kpi.schema';
 
 export type MeasureDocument = Measure & mongoose.Document;
 
@@ -12,9 +13,16 @@ export class Measure {
   id: number;
   @Prop()
   name: string;
-
+  @Prop()
+  description: string;
   @Prop()
   focusArea: string;
+  @Prop()
+  focusAreaFull: string;
+  @Prop()
+  time: string;
+  @Prop()
+  lastUpdate: string;
 
   @Prop()
   measureLead: string;
@@ -48,8 +56,29 @@ export class Measure {
   @Prop()
   kpiProgress: number;
 
+  @Prop()
+  totalApprovedBudget: number;
+  @Prop()
+  monthlySpendings: number[];
+
+  @Prop()
+  risks: [{
+    risk: string,
+    description: string,
+    criticality: string,
+    migration: string,
+    resolutionDate: string | number,
+  }]
+
+  @Prop()
+  kpiData: KPI
+
   @Prop({ type: [mongoose.Schema.Types.ObjectId], ref: 'Artefact' })
   artefacts: [Artefact];
 }
 
 export const MeasureSchema = SchemaFactory.createForClass(Measure);
+
+
+
+

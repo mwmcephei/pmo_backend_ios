@@ -13,10 +13,15 @@ export class ApiController {
 
 
 
+  @Get('measure/:measureID')
+  getMeasure(@Param() params) {
+    console.log('get measure ' + params.measureID);
+    console.log(params.measureID);
+    return this.apiService.getMeasure(params.measureID);
+  }
 
 
-
-  @Get('measures/:measureID/artefacts')
+  @Get('measure/:measureID/artefacts')
   getArtefactsOfMeasure(@Param() params) {
     console.log('get artefacts of ' + params.measureID);
     console.log(params.measureID);
