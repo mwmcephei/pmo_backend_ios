@@ -15,34 +15,27 @@ export class ApiController {
 
   @Get('measure/:measureID')
   getMeasure(@Param() params) {
-    console.log('get measure ' + params.measureID);
-    console.log(params.measureID);
     return this.apiService.getMeasure(params.measureID);
   }
 
 
   @Get('measure/:measureID/artefacts')
   getArtefactsOfMeasure(@Param() params) {
-    console.log('get artefacts of ' + params.measureID);
-    console.log(params.measureID);
     return this.apiService.getArtefactsOfMeasure(params.measureID);
   }
 
   @Get('overview')
   getOverview() {
-    console.log('getOverview');
     return this.apiService.getOverview();
   }
 
   @Get('measures')
   getAllMeasures() {
-    console.log('getAllMeasures');
     return this.apiService.getAllMeasures();
   }
 
   @Get('budget')
   getBudget() {
-    console.log('getBudget');
     return this.apiService.getBudget();
   }
 }

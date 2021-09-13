@@ -6,6 +6,8 @@ import { Artefact, ArtefactSchema } from '../schemas/artefact.schema';
 import { Budget, BudgetSchema } from '../schemas/budget.schema';
 import { Model } from 'mongoose';
 import { fileNames } from 'src/globalVars';
+import '../types'
+import { Overview } from '../types';
 
 @Injectable()
 export class ApiService {
@@ -17,44 +19,54 @@ export class ApiService {
     ) { }
 
 
-    async getMeasure(measureID: string): Promise<string> {
-        const measure = await this.measureModel.findById(measureID);
-        if (measure) {
-            return JSON.stringify(measure);
-        } else {
-            return JSON.stringify('Error');
+    async getMeasure(measureID: string): Promise<Measure> {
+        try {
+            const measure = await this.measureModel.findById(measureID);
+            return measure
+        } catch (error) {
+            return error
         }
     }
 
-    async getArtefactsOfMeasure(measureID: string): Promise<string> {
-        const measure = await this.measureModel.findById(measureID).sort({ id: "asc" })
-        if (measure) {
+    async getArtefactsOfMeasure(measureID: string): Promise<Artefact[]> {
+        try {
+            const measure = await this.measureModel.findById(measureID).sort({ id: "asc" })
             const populatedMeasure = await measure
                 .populate('artefacts')
                 .execPopulate();
-            return JSON.stringify(populatedMeasure.artefacts);
-        } else {
-            return JSON.stringify('Error');
+            return populatedMeasure.artefacts
+        } catch (error) {
+            return error
         }
     }
 
-    async getAllMeasures(): Promise<string> {
-        const result = await this.measureModel.find().sort({ id: "asc" })
-        console.log(result);
-        return JSON.stringify(result);
+    async getAllMeasures(): Promise<Measure[]> {
+        try {
+            const result = await this.measureModel.find().sort({ id: "asc" })
+            return result
+        } catch (error) {
+            return error
+        }
     }
 
-    async getOverview(): Promise<string> {
-        const excelSheet = await this.sheetModel.findOne({
-            name: fileNames.main_file,
-        }); // TO DO: safeguard for duplicates
-        console.log(excelSheet);
-        return JSON.stringify(excelSheet);
+    async getOverview(): Promise<Sheet> {
+        try {
+            const excelSheet = await this.sheetModel.findOne({
+                name: fileNames.main_file,
+            });
+            return excelSheet
+        } catch (error) {
+            return error
+        }
     }
 
-    async getBudget(): Promise<string> {
-        const excelSheet = await this.budgetModel.findOne(); // TO DO: safeguard for duplicates
-        console.log(excelSheet);
-        return JSON.stringify(excelSheet);
+
+    async getBudget(): Promise<Budget> {
+        try {
+            const budget = await this.budgetModel.findOne();
+            return budget
+        } catch (error) {
+            return error
+        }
     }
 }

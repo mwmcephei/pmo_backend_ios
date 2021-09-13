@@ -9,6 +9,9 @@ import { Model } from 'mongoose';
 import { resolve } from 'path';
 import * as XLSX from 'xlsx';
 import { fileNames } from '../globalVars';
+import '../types'
+import 'src/types';
+import { Risk, SheetType, KPI, KpiProgressData, InitialOverview, Overview, AllBudgetMeasures, BudgetDetail } from 'src/types';
 
 
 /*
@@ -20,47 +23,7 @@ Conduct one-time manual parsing by addressing api endpoints in this order:
 5. .../xlsx-parser/parse_budget_months
 */
 
-type Overview = {
-  numberOfMeasures: number,
-  totalBudget: number,
-  overallStatus: number,
-  progressOverviewBarResult: number,
-  KPIProgressResult: number,
-}
-type ParseOverview = {
-  row: number,
-  name: string,
-  risk: number,
-  budget: number,
-  artefact: number
-}
-type KpiProgressData = {
-  measureName: string,
-  progress: number
-}
-type AllBudgetMeasures = { [x: number]: number }
 
-type risk = {
-  risk: string | number,
-  description: string | number,
-  criticality: string | number,
-  migration: string | number,
-  resolutionDate: string | number,
-}
-
-type KPI = {
-  target: number,
-  actuals: number,
-  baseline: number,
-  plan1: number,
-  plan2: number,
-  plan3: number,
-  plan4: number,
-}
-
-type SheetType = {
-  [key: string]: string | number
-}
 
 @Injectable()
 export class XlsxParserService {
@@ -73,8 +36,8 @@ export class XlsxParserService {
 
 
 
-  async createOverview(): Promise<Overview> {
-    let result: Overview;
+  async createOverview(): Promise<InitialOverview> {
+    let result: InitialOverview;
     const excelSheet = await this.sheetModel.findOne({
       name: fileNames.main_file,
     });
@@ -250,7 +213,7 @@ export class XlsxParserService {
         const kpiWorkbook = XLSX.readFile(resolve(fileNames.xlsx_file_dir, fileNames.kpi_file_1));
         const kpiFileAsJsonObject = kpiWorkbook.Sheets['Plan view'];
 
-        //     console.log(budgetDetailsFileAsJsonObject)
+        console.log(budgetFileAsJsonObject)
 
         // 'sheet' here means a sheet of the xlsx file i.e. a measure "M...""
         const sheet_name_list = workbook.SheetNames;
@@ -290,6 +253,7 @@ export class XlsxParserService {
               return sumOfThisMonth
             })
 
+
             let kpiData: KPI = {
               target: 0,
               actuals: 0,
@@ -316,10 +280,25 @@ export class XlsxParserService {
               }
             });
             let totalApprovedBudget = 0
+            let spentBudget = 0
+            let invoicedBudget = 0
+            let forecastBudget = 0
+            let contractBudget = 0
             for (let i = 0; i < budgetFileAsJsonObject.length; i++) {
               if (budgetFileAsJsonObject[i]["__EMPTY_1"] === sheetName) {
-                totalApprovedBudget = budgetFileAsJsonObject[i]["__EMPTY_10"]
+                totalApprovedBudget = budgetFileAsJsonObject[i]["__EMPTY_10"] ? budgetFileAsJsonObject[i]["__EMPTY_10"] : 0
+                spentBudget = budgetFileAsJsonObject[i]["__EMPTY_15"] ? budgetFileAsJsonObject[i]["__EMPTY_15"] : 0
+                invoicedBudget = budgetFileAsJsonObject[i]["__EMPTY_26"] ? budgetFileAsJsonObject[i]["__EMPTY_26"] : 0
+                contractBudget = budgetFileAsJsonObject[i]["__EMPTY_26"] ? budgetFileAsJsonObject[i]["__EMPTY_27"] : 0
+                forecastBudget = budgetFileAsJsonObject[i]["__EMPTY_28"] ? budgetFileAsJsonObject[i]["__EMPTY_28"] : 0
               }
+            }
+            const budgetDetail: BudgetDetail = {
+              totalApprovedBudget,
+              spentBudget,
+              invoicedBudget,
+              contractBudget,
+              forecastBudget
             }
             const xlsxFileAsJsonObject: SheetType[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
             let id: number;
@@ -350,38 +329,36 @@ export class XlsxParserService {
               }
             }
             // get risks
-            const risks: risk[] = []
+            const risks: Risk[] = []
             for (let x = 0; x < xlsxFileAsJsonObject.length; x++) {
               if (xlsxFileAsJsonObject[x]["__EMPTY_2"] === "KPI Description (Actuals/Target)") {
-                let risk1: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
-                if (xlsxFileAsJsonObject[x]["__EMPTY_8"]) { risk1.risk = xlsxFileAsJsonObject[x]["__EMPTY_8"] }
-                if (xlsxFileAsJsonObject[x]["__EMPTY_10"]) { risk1.description = xlsxFileAsJsonObject[x]["__EMPTY_10"] }
-                if (xlsxFileAsJsonObject[x]["__EMPTY_17"]) { risk1.criticality = xlsxFileAsJsonObject[x]["__EMPTY_17"] }
-                if (xlsxFileAsJsonObject[x]["__EMPTY_19"]) { risk1.migration = xlsxFileAsJsonObject[x]["__EMPTY_19"] }
-                if (xlsxFileAsJsonObject[x]["__EMPTY_25"]) { risk1.resolutionDate = xlsxFileAsJsonObject[x]["__EMPTY_25"] }
+                let risk1: Risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                risk1.risk = xlsxFileAsJsonObject[x]["__EMPTY_8"] ?? ""
+                risk1.description = xlsxFileAsJsonObject[x]["__EMPTY_10"] ?? ""
+                risk1.criticality = xlsxFileAsJsonObject[x]["__EMPTY_17"] ?? ""
+                risk1.migration = xlsxFileAsJsonObject[x]["__EMPTY_19"] ?? ""
+                risk1.resolutionDate = xlsxFileAsJsonObject[x]["__EMPTY_25"] ?? ""
                 risks.push(risk1)
                 if (xlsxFileAsJsonObject[x + 3]["__EMPTY_8"]) {
-                  let risk2: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
-                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_8"]) { risk2.risk = xlsxFileAsJsonObject[x + 3]["__EMPTY_8"] }
-                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_10"]) { risk2.description = xlsxFileAsJsonObject[x + 3]["__EMPTY_10"] }
-                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_17"]) { risk2.criticality = xlsxFileAsJsonObject[x + 3]["__EMPTY_17"] }
-                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_19"]) { risk2.migration = xlsxFileAsJsonObject[x + 3]["__EMPTY_19"] }
-                  if (xlsxFileAsJsonObject[x + 3]["__EMPTY_25"]) { risk2.resolutionDate = xlsxFileAsJsonObject[x + 3]["__EMPTY_25"] }
+                  let risk2: Risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                  risk2.risk = xlsxFileAsJsonObject[x + 3]["__EMPTY_8"] ?? ""
+                  risk2.description = xlsxFileAsJsonObject[x + 3]["__EMPTY_10"] ?? ""
+                  risk2.criticality = xlsxFileAsJsonObject[x + 3]["__EMPTY_17"] ?? ""
+                  risk2.migration = xlsxFileAsJsonObject[x + 3]["__EMPTY_19"] ?? ""
+                  risk2.resolutionDate = xlsxFileAsJsonObject[x + 3]["__EMPTY_25"] ?? ""
                   risks.push(risk2)
                   if (xlsxFileAsJsonObject[x + 6]["__EMPTY_8"]) {
-                    let risk3: risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
-                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_8"]) { risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_8"] }
-                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_10"]) { risk3.description = xlsxFileAsJsonObject[x + 6]["__EMPTY_10"] }
-                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_17"]) { risk3.criticality = xlsxFileAsJsonObject[x + 6]["__EMPTY_17"] }
-                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_19"]) { risk3.migration = xlsxFileAsJsonObject[x + 6]["__EMPTY_19"] }
-                    if (xlsxFileAsJsonObject[x + 6]["__EMPTY_25"]) { risk3.resolutionDate = xlsxFileAsJsonObject[x + 6]["__EMPTY_25"] }
+                    let risk3: Risk = { risk: "", description: "", criticality: "", migration: "", resolutionDate: "" }
+                    risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_8"] ?? ""
+                    risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_10"] ?? ""
+                    risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_17"] ?? ""
+                    risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_19"] ?? ""
+                    risk3.risk = xlsxFileAsJsonObject[x + 6]["__EMPTY_25"] ?? ""
                     risks.push(risk3)
                   }
                 }
               }
             }
-            console.log(monthlySpendings)
-
             const newMeasure = {
               kpiData,
               id,
@@ -402,7 +379,7 @@ export class XlsxParserService {
               actuals,
               target,
               risks,
-              totalApprovedBudget,
+              budgetDetail,
               monthlySpendings
             }
             const measure = new this.measureModel(newMeasure)
@@ -466,7 +443,7 @@ export class XlsxParserService {
 
 
   // adds status info to measures
-  parse_overview(): ParseOverview[] {
+  parse_overview() {
     const workbook = XLSX.readFile(
       resolve(fileNames.xlsx_file_dir, fileNames.main_file),
     );
@@ -532,7 +509,6 @@ export class XlsxParserService {
         }
       }
     });
-    return result;
   }
 
 

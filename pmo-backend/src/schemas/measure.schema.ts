@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
 import { Artefact } from './artefact.schema';
 import { KPI } from './kpi.schema';
+import { BudgetDetail } from './budgetDetail.schema';
 
 export type MeasureDocument = Measure & mongoose.Document;
 
@@ -57,8 +58,6 @@ export class Measure {
   kpiProgress: number;
 
   @Prop()
-  totalApprovedBudget: number;
-  @Prop()
   monthlySpendings: number[];
 
   @Prop()
@@ -69,6 +68,10 @@ export class Measure {
     migration: string,
     resolutionDate: string | number,
   }]
+
+
+  @Prop()
+  budgetDetail: BudgetDetail
 
   @Prop()
   kpiData: KPI
