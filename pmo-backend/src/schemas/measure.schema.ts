@@ -61,27 +61,24 @@ export class Measure {
   monthlySpendings: number[];
 
   @Prop()
-  risks: [{
-    risk: string,
-    description: string,
-    criticality: string,
-    migration: string,
-    resolutionDate: string | number,
-  }]
-
-
-  @Prop()
-  budgetDetail: BudgetDetail
+  risks: [
+    {
+      risk: string;
+      description: string;
+      criticality: string;
+      migration: string;
+      resolutionDate: string | number;
+    },
+  ];
 
   @Prop()
-  kpiData: KPI
+  budgetDetail: BudgetDetail;
+
+  @Prop()
+  kpiData: KPI;
 
   @Prop({ type: [mongoose.Schema.Types.ObjectId], ref: 'Artefact' })
   artefacts: [Artefact];
 }
 
 export const MeasureSchema = SchemaFactory.createForClass(Measure);
-
-
-
-

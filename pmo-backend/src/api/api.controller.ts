@@ -3,21 +3,17 @@ import { ApiService } from './api.service';
 
 @Controller('api')
 export class ApiController {
-  constructor(private readonly apiService: ApiService) { }
-
+  constructor(private readonly apiService: ApiService) {}
 
   @Get('test')
   test() {
-    return "test"
+    return 'test';
   }
-
-
 
   @Get('measure/:measureID')
   getMeasure(@Param() params) {
     return this.apiService.getMeasure(params.measureID);
   }
-
 
   @Get('measure/:measureID/artefacts')
   getArtefactsOfMeasure(@Param() params) {
